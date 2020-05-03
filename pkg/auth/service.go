@@ -2,22 +2,23 @@ package auth
 
 import (
 	"errors"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Service ...
 type Service interface {
-	Login(string, string) (User, error)
+	Login(string, string) (*User, error)
 	Logout() error
-	Register() (User, error)
+	Register(string, string) (*User, error)
 }
 
 // Repository ...
 type Repository interface {
-	GetUser(string) (User, error)
+	GetUser(string) (*User, error)
+	CreateUser(*User) error
 	// Logout() error
-	// Register() (User, error)
 }
 
 type service struct {
@@ -29,15 +30,15 @@ func NewService(r Repository) Service {
 	return &service{r}
 }
 
-func (s *service) Login(email, password string) (User, error) {
+func (s *service) Login(email, pwd string) (*User, error) {
 	user, err := s.r.GetUser(email)
 	if err != nil {
-		return user, err
+		return nil, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(pwd))
 	if err != nil {
-		return user, errors.New("Invalid username or password")
+		return nil, errors.New("Invalid username or password")
 	}
 
 	return user, err
@@ -48,7 +49,21 @@ func (s *service) Logout() error {
 	return nil
 }
 
-func (s *service) Register() (User, error) {
-	// user, err := s.r.Register()
-	return User{}, nil
+func (s *service) Register(email, pwd string) (*User, error) {
+	pwdHash, err := bcrypt.GenerateFromPassword([]byte(pwd), 11)
+	if err != nil {
+		return nil, errors.New("Failed to register user")
+	}
+
+	u, err := s.r.GetUser(email)
+	if u != nil {
+		return nil, errors.New("User already exists")
+	}
+
+	user := User{Email: email, PasswordHash: string(pwdHash), Name: strings.Split(email, "@")[0]}
+	if err = s.r.CreateUser(&user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }

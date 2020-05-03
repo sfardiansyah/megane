@@ -3,7 +3,6 @@ package mongodb
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 
 // Storage ...
 type Storage struct {
-	db *mongo.Client
+	db *mongo.Database
 }
 
 // NewStorage ...
@@ -24,33 +23,48 @@ func NewStorage() (*Storage, error) {
 
 	s := new(Storage)
 
-	s.db, err = mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URL")))
+	c, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URL")))
 	if err != nil {
-		log.Fatal(err)
 		return nil, err
 	}
+
+	if err := c.Connect(context.TODO()); err != nil {
+		return nil, errors.New("Failed to connect to the database")
+	}
+
+	s.db = c.Database(os.Getenv("MONGODB_DB"))
 
 	return s, nil
 }
 
 // GetUser ...
-func (s *Storage) GetUser(email string) (auth.User, error) {
+func (s *Storage) GetUser(email string) (*auth.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	user := auth.User{}
+	user := new(auth.User)
 
-	err := s.db.Connect(ctx)
+	collection := s.db.Collection("user")
+
+	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
-		return user, errors.New("Failed to connect to the database")
-	}
-
-	collection := s.db.Database(os.Getenv("MONGODB_DB")).Collection("user")
-
-	err = collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	if err != nil {
-		return user, errors.New("Invalid username or password")
+		return nil, errors.New("Invalid username or password")
 	}
 
 	return user, nil
+}
+
+// CreateUser ...
+func (s *Storage) CreateUser(user *auth.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := s.db.Collection("user")
+
+	_, err := collection.InsertOne(ctx, user)
+	if err != nil {
+		return errors.New("Failed to register user")
+	}
+
+	return nil
 }
