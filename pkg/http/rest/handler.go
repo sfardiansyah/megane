@@ -2,8 +2,10 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sfardiansyah/megane/pkg/auth"
 )
@@ -17,7 +19,10 @@ func Handler(a auth.Service) http.Handler {
 	s.HandleFunc("/login", login(a)).Methods("POST")
 	s.HandleFunc("/register", register(a)).Methods("POST")
 
-	return r
+	return handlers.CORS(
+		handlers.AllowedOrigins([]string{"http://localhost:3000"}),
+		handlers.AllowedHeaders([]string{"Content-Type"}),
+	)(r)
 }
 
 func login(a auth.Service) func(w http.ResponseWriter, r *http.Request) {
@@ -30,12 +35,21 @@ func login(a auth.Service) func(w http.ResponseWriter, r *http.Request) {
 
 		user, err := a.Login(lR.Email, lR.Password)
 		if err != nil {
+			if errors.Is(err, auth.ErrInvalidCredentials) {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		payload := map[string]*auth.User{
+			"user": user,
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+		json.NewEncoder(w).Encode(payload)
 	}
 }
 

@@ -48,7 +48,7 @@ func (s *Storage) GetUser(email string) (*auth.User, error) {
 
 	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
-		return nil, errors.New("Invalid username or password")
+		return nil, auth.ErrInvalidCredentials
 	}
 
 	return user, nil

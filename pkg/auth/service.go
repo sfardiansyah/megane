@@ -7,6 +7,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var (
+	// ErrInvalidCredentials ...
+	ErrInvalidCredentials = errors.New("Invalid username or password")
+)
+
 // Service ...
 type Service interface {
 	Login(string, string) (*User, error)
@@ -38,7 +43,7 @@ func (s *service) Login(email, pwd string) (*User, error) {
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(pwd))
 	if err != nil {
-		return nil, errors.New("Invalid username or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	return user, err
