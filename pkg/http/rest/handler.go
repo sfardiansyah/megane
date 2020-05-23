@@ -33,7 +33,7 @@ func login(a auth.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := a.Login(lR.Email, lR.Password)
+		user, token, err := a.Login(lR.Email, lR.Password)
 		if err != nil {
 			if errors.Is(err, auth.ErrInvalidCredentials) {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -44,8 +44,9 @@ func login(a auth.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		payload := map[string]*auth.User{
-			"user": user,
+		payload := map[string]interface{}{
+			"user":  user,
+			"token": token,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -61,13 +62,18 @@ func register(a auth.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := a.Register(rR.Email, rR.Password)
+		user, token, err := a.Register(rR.Email, rR.Password)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		payload := map[string]interface{}{
+			"user":  user,
+			"token": token,
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+		json.NewEncoder(w).Encode(payload)
 	}
 }

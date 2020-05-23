@@ -2,8 +2,10 @@ package auth
 
 import (
 	"errors"
+	"os"
 	"strings"
 
+	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -14,16 +16,14 @@ var (
 
 // Service ...
 type Service interface {
-	Login(string, string) (*User, error)
-	Logout() error
-	Register(string, string) (*User, error)
+	Login(string, string) (*User, string, error)
+	Register(string, string) (*User, string, error)
 }
 
 // Repository ...
 type Repository interface {
 	GetUser(string) (*User, error)
 	CreateUser(*User) error
-	// Logout() error
 }
 
 type service struct {
@@ -35,40 +35,41 @@ func NewService(r Repository) Service {
 	return &service{r}
 }
 
-func (s *service) Login(email, pwd string) (*User, error) {
+func (s *service) Login(email, pwd string) (*User, string, error) {
 	user, err := s.r.GetUser(email)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(pwd))
 	if err != nil {
-		return nil, ErrInvalidCredentials
+		return nil, "", ErrInvalidCredentials
 	}
 
-	return user, err
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"email": user.Email, "name": user.Name})
+	signed, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+
+	return user, signed, err
 }
 
-func (s *service) Logout() error {
-	// err := s.r.Logout()
-	return nil
-}
-
-func (s *service) Register(email, pwd string) (*User, error) {
+func (s *service) Register(email, pwd string) (*User, string, error) {
 	pwdHash, err := bcrypt.GenerateFromPassword([]byte(pwd), 11)
 	if err != nil {
-		return nil, errors.New("Failed to register user")
+		return nil, "", errors.New("Failed to register user")
 	}
 
 	u, err := s.r.GetUser(email)
 	if u != nil {
-		return nil, errors.New("User already exists")
+		return nil, "", errors.New("User already exists")
 	}
 
 	user := User{Email: email, PasswordHash: string(pwdHash), Name: strings.Split(email, "@")[0]}
 	if err = s.r.CreateUser(&user); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return &user, nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"email": user.Email, "name": user.Name})
+	signed, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+
+	return &user, signed, nil
 }
