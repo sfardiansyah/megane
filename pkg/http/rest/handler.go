@@ -21,7 +21,7 @@ func Handler(a auth.Service) http.Handler {
 
 	return handlers.CORS(
 		handlers.AllowedOrigins([]string{"http://localhost:3000"}),
-		handlers.AllowedHeaders([]string{"Content-Type"}),
+		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 	)(r)
 }
 

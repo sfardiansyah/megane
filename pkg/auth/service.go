@@ -46,7 +46,7 @@ func (s *service) Login(email, pwd string) (*User, string, error) {
 		return nil, "", ErrInvalidCredentials
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"email": user.Email, "name": user.Name})
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"id": user.ID, "email": user.Email, "name": user.Name})
 	signed, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
 
 	return user, signed, err
@@ -68,7 +68,7 @@ func (s *service) Register(email, pwd string) (*User, string, error) {
 		return nil, "", err
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"email": user.Email, "name": user.Name})
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"id": user.ID, "email": user.Email, "name": user.Name})
 	signed, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
 
 	return &user, signed, nil
